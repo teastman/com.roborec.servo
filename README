@@ -1,0 +1,3 @@
+This library isn't done yet.  But it's at an initial working state.
+
+I've noticed some jitter on certain servos, I'm as of yet unsure if that's due to the servo itself or the variance in the time it takes to complete the interrupt functions.
