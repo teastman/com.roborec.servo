@@ -20,7 +20,8 @@ static ServoNode *firstServoNode;
 static MaskNode *nextInterruptMaskNode;
 
 static bool initialized = false;
-static uint16_t PRESCALER = 1;
+// Dependant on the processor speed, 
+static uint16_t PRESCALER = 8;
 static uint16_t TOP = 0;
 static uint16_t SERVO_MAX_PULSE = 2600;
 
@@ -92,50 +93,44 @@ static void moveMaskNode(ServoNode* servoNode, uint16_t newTime)
 	}
 }
 
-// Apparently in CTC the overflow can't be used. As it only triggers on MAX
-static inline void overflow_interrupt()
-{
-	// Turn on all pins in the clear mask nodes.
-	MaskNode* currentMaskNode = firstClearMaskNode;
-	while(currentMaskNode != NULL)
-	{
-		*(currentMaskNode->port) |= currentMaskNode->mask;
-		currentMaskNode = currentMaskNode->next;
-	}
-}
-
-// Comparator A is used when it's time to turn off at least one of the pins.
-static inline void compa_interrupt(volatile uint16_t *TCNTn, volatile uint16_t* OCRnA)
-{
+ISR(TIMER1_COMPA_vect) 
+{ 
 	// Check that the maskNode to interrupt is not null, and that it's time has arrived.
 	// Important to have in a while loop in case multiple mask nodes in a row share an interrupt time.
 	// This can happen when two different ports need to interrupt at the same time.
-	while(nextInterruptMaskNode != NULL && nextInterruptMaskNode->time <= *TCNTn)
+	while(nextInterruptMaskNode != NULL && nextInterruptMaskNode->time <= TCNT1)
 	{
 		// Apply the mask to the port to set the pins.
 		*(nextInterruptMaskNode->port) &= ~(nextInterruptMaskNode->mask);
-		
+			
 		// Advance the pointer to the next mask to be interrupted.
 		nextInterruptMaskNode = nextInterruptMaskNode->next;
-		
+			
 		// If it's not null, set the next Comparator A time to interrupt to the masks time.
 		if(nextInterruptMaskNode != NULL)
 		{
-			*OCRnA = nextInterruptMaskNode->time;
-		}			
-	}		
+			OCR1A = nextInterruptMaskNode->time;
+		}
+	}
+	return;
 }
 
-// Comparator B is used when the max pulse width of any servos has passed.
-// The goal is to use the time between the end of signal sending (usually around 2400) and the next beginning (19999)
-// to calculate the next pulse widths to be sent, and reorder the masks accordingly.
-static inline void compb_interrupt(volatile uint16_t *TCNTn, volatile uint16_t* OCRnA, volatile uint16_t* OCRnB)
-{
-	if(*OCRnB >= TOP-14)
+ISR(TIMER1_COMPB_vect) 
+{ 
+	// Comparator B is used when the max pulse width of any servos has passed.
+	// The goal is to use the time between the end of signal sending (usually around 2400) and the next beginning (19999)
+	// to calculate the next pulse widths to be sent, and reorder the masks accordingly.
+	if(OCR1B >= TOP)
 	{
-		*TCNTn = 0;
-		overflow_interrupt();
-		*OCRnB = SERVO_MAX_PULSE;
+		TCNT1 = 0;
+		// Turn on all pins in the clear mask nodes.
+		MaskNode* currentMaskNode = firstClearMaskNode;
+		while(currentMaskNode != NULL)
+		{
+			*(currentMaskNode->port) |= currentMaskNode->mask;
+			currentMaskNode = currentMaskNode->next;
+		}
+		OCR1B = SERVO_MAX_PULSE;
 	}
 	else
 	{
@@ -165,29 +160,11 @@ static inline void compb_interrupt(volatile uint16_t *TCNTn, volatile uint16_t* 
 		nextInterruptMaskNode = maskNode;
 		
 		// Set the next interrupt for A to be the first interrupt mask node.
-		*OCRnA = nextInterruptMaskNode->time;
-		*OCRnB = TOP-14;
+		OCR1A = nextInterruptMaskNode->time;
+		OCR1B = TOP;
 	}
-	
-}
-
-ISR(TIMER1_COMPA_vect) 
-{ 
-	compa_interrupt(&TCNT1, &OCR1A); 
 	return;
 }
-
-ISR(TIMER1_COMPB_vect) 
-{ 
-	compb_interrupt(&TCNT1, &OCR1A, &OCR1B); 
-	return;
-}
-/*
-ISR(TIMER1_CAPT_vect)
-{
-	overflow_interrupt();
-	return;
-}*/
 
 static void initializeISR()
 {  
@@ -196,78 +173,27 @@ static void initializeISR()
 		firstClearMaskNode = NULL;
 		firstServoNode = NULL;
 		nextInterruptMaskNode = NULL;
-		
-		// Calculate the PRESCALER based on the clock speed F_CPU.
-		// TOP = (F_CPU / (PRESCALER * 50)) - 1;
-		// Top must be < 65536, therefore select for prescalar based on that.
-		if(F_CPU / 50 < 65537)
-		{
-			PRESCALER = 1;
-		}				
-		else if(F_CPU / 400  < 65537)
-		{
-			PRESCALER = 8;
-		}				
-		else if(F_CPU / 3200 < 65537)
-		{
-			PRESCALER = 64;
-		}				
-		else if(F_CPU / 12800  < 65537)
-		{
-			PRESCALER = 256;
-		}				
-		else if(F_CPU / 51200 < 65537)
-		{
-			PRESCALER = 1024;
-		}
-		
+	
 		cli();
 		#if defined (_useTimer1)
-		
 			// Set the initial trigger times.
 			OCR1A = 0;
 			OCR1B = SERVO_MAX_PULSE;
 		
 			// Set the timers settings fields TCCR1A & TCCR1B
-			// Set WGM (Waveform Generation Mode) to Fast PWM Mode(14 | 1110) = WGM11, WGM12, WGM13
-			
+			// Set WGM (Waveform Generation Mode) to Normal Mode
 			TCCR1A = 0;
 			TCCR1B = 0;
-			
-			//TCCR1A = _BV(WGM11);             
-			// Note: I've discovered it's important to use CTC count mode so that you can set OCR1A during a cycle.
-			// otherwise it uses double buffering and only pushes when the count reached BOTTOM.
-			
-			//TCCR1B = _BV(WGM12) | _BV(WGM13);
 			TCNT1 = 0;		// (Timer Counter) Clear the current timers count.
 			
 			// ICR depends on the clock speed F_CPU and the PRESCALER CS.
 			// It needs to be set so that the total time of 1 timer cycle is 20 ms = 50 Hz 
 			// Hence the magic 50 in the equation TOP = (F_CPU / (PRESCALER * 50)) - 1;
-			switch(PRESCALER)
-			{
-				case 1: TCCR1B |= _BV(CS10); // Set PRESCALER to 1 (001)
-					break;
-				case 8: TCCR1B |= _BV(CS11); // Set PRESCALER to 8 (010)
-					break;
-				case 64: TCCR1B |= _BV(CS10) | _BV(CS11); // Set PRESCALER to 64 (011)
-					break;
-				case 256: TCCR1B |= _BV(CS12); // Set PRESCALER to 256 (100)
-					break;
-				case 1024: TCCR1B |= _BV(CS10) | _BV(CS12); // Set PRESCALER to 1024 (101)
-					break;
-				default: 
-					break;
-			}
+			
 			TOP = (F_CPU / (PRESCALER * 50)) - 1;
-			//ICR1 = TOP;
-		#if defined(__AVR_ATmega8__)|| defined(__AVR_ATmega128__)
-			TIFR |= _BV(OCF1A) | _BV(OCF1B); //| _BV(TOV1);			// (Timer Interrupt Flag Register) Clear any existing interrupts for comparator A, B and overflow.
-			TIMSK |=  _BV(OCIE1A) | _BV(OCIE1B);// | _BV(TOIE1);		// (Timer Interrupt Mask Register) Watch comparator A, B, Watch Timer Overflow
-		#else
-			TIFR1 |= _BV(OCF1A) | _BV(OCF1B);// | _BV(TOV1);		// (Timer Interrupt Flag Register) Clear any existing interrupts for comparator A, B and overflow.
-			TIMSK1 |=  _BV(OCIE1A) | _BV(OCIE1B);// | _BV(TOIE1);	// (Timer Interrupt Mask Register) Watch comparator A, B, Watch Timer Overflow
-		#endif    
+			TCCR1B |= _BV(CS11); // Set PRESCALER to 8 (010)
+			TIFR1 |= _BV(OCF1A) | _BV(OCF1B);						// (Timer Interrupt Flag Register) Clear any existing interrupts for comparator A and B.
+			TIMSK1 |=  _BV(OCIE1A) | _BV(OCIE1B);					// (Timer Interrupt Mask Register) Watch comparator A and B.
 		#endif 
 		sei();
 		initialized = true;
