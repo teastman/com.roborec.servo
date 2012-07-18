@@ -177,13 +177,15 @@ void Servo::normalize(bool normalize){
 // The updates are being sent out at a rate of 50 Hz or once every 20us
 uint16_t Servo::pulseVelocity(uint8_t velocity) const{
 	velocity = (velocity>100) ? 100 : velocity;
-	return degreesToMicros((m_maxVelocity / 50) * ((double)velocity / 100.0));
+	return (uint16_t)(((double)m_maxVelocity / 50.0) * ((double)velocity / 100.0) * ((double)(m_maxPulseWidth - m_minPulseWidth) / 180.0));
 }
 
+// Converts a give angle to the appropriate microsecond burst.
 uint16_t Servo::degreesToMicros(uint8_t val) const{
 	return (m_maxPulseWidth - m_minPulseWidth) / 180 * val + m_minPulseWidth;
 }
 
+// Converts a microsecond burst into an angle.
 uint8_t Servo::microsToDegrees(uint16_t val) const{
 	return (uint8_t)(180.0 / (double)(m_maxPulseWidth - m_minPulseWidth) * (val - m_minPulseWidth));
 }
