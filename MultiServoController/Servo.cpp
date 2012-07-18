@@ -131,6 +131,10 @@ void Servo::limitVelocity(uint8_t velocity){
 void Servo::unlimitVelocity(){
 	m_applyVelocityLimit = false;
 }	
+
+bool Servo::isLimited(){
+	return m_applyVelocityLimit;
+}	
 	
 void Servo::limit(uint8_t minAngle, uint8_t maxAngle){
 	m_minPulse = degreesToMicros(minAngle);
@@ -173,7 +177,7 @@ void Servo::normalize(bool normalize){
 // The updates are being sent out at a rate of 50 Hz or once every 20us
 uint16_t Servo::pulseVelocity(uint8_t velocity) const{
 	velocity = (velocity>100) ? 100 : velocity;
-	return degreesToMicros((m_maxVelocity / 50) * (velocity / 100));
+	return degreesToMicros((m_maxVelocity / 50) * ((double)velocity / 100.0));
 }
 
 uint16_t Servo::degreesToMicros(uint8_t val) const{
@@ -181,5 +185,5 @@ uint16_t Servo::degreesToMicros(uint8_t val) const{
 }
 
 uint8_t Servo::microsToDegrees(uint16_t val) const{
-	return 180 / (m_maxPulseWidth - m_minPulseWidth) * val;
+	return (uint8_t)(180.0 / (double)(m_maxPulseWidth - m_minPulseWidth) * (val - m_minPulseWidth));
 }
