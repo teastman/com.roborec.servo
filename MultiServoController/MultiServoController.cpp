@@ -11,7 +11,6 @@
 #include "MultiServoController.h"
 #include "ServoNode.h"
 #include "MaskNode.h"
-#include "BitOps.h"
 
 static MaskNode *firstClearMaskNode;
 static ServoNode *firstServoNode;
