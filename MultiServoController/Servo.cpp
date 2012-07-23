@@ -29,6 +29,7 @@ Servo::~Servo(){
 
 void Servo::rotateTo(uint8_t angle){
 	angle = (angle>180) ? 180 : angle;
+	angle = (m_invert) ? 180-angle : angle;
 	m_destinationPulse = degreesToMicros(angle);
 	m_destinationPulse = (m_destinationPulse>m_maxPulse) ? m_maxPulse : m_destinationPulse;
 	m_destinationPulse = (m_destinationPulse<m_minPulse) ? m_minPulse : m_destinationPulse;
@@ -70,15 +71,18 @@ uint16_t Servo::calculateNextPulse(){
 }	
 	 
 uint8_t Servo::currentAngle() const{
-	return microsToDegrees(m_currentPulse);
+	uint8_t result =  microsToDegrees(m_currentPulse);
+	return (m_invert) ? 180-result : result;
 }
 	
 uint8_t Servo::destinationAngle() const{
-	return microsToDegrees(m_destinationPulse);
+	uint8_t result =  microsToDegrees(m_destinationPulse);
+	return (m_invert) ? 180-result : result;
 }
 
 uint8_t Servo::nextAngle() const{
-	return microsToDegrees(m_nextPulse);
+	uint8_t result =  microsToDegrees(m_nextPulse);
+	return (m_invert) ? 180-result : result;
 }
 
 uint16_t Servo::currentPulse() const{
@@ -137,24 +141,35 @@ bool Servo::isVelocityLimited(){
 }	
 	
 void Servo::limitAngle(uint8_t minAngle, uint8_t maxAngle){
+	uint8_t minAng = minAngle;
+	minAngle = (m_invert) ? 180-maxAngle : minAngle;
+	maxAngle = (m_invert) ? 180-minAng : maxAngle;
 	m_minPulse = degreesToMicros(minAngle);
 	m_maxPulse = degreesToMicros(maxAngle);
 }	
 
 uint8_t Servo::minAngle() const{
-	return microsToDegrees(m_minPulse);
+	uint8_t result =  (m_invert) ? microsToDegrees(m_maxPulse) : microsToDegrees(m_minPulse);
+	return (m_invert) ? 180-result : result;
 }
 	
 void Servo::minAngle(uint8_t minAngle){
-	m_minPulse = degreesToMicros(minAngle);
+	if(m_invert)
+		m_maxPulse = degreesToMicros(180 - minAngle);
+	else
+		m_minPulse = degreesToMicros(minAngle);
 }
 	
 uint8_t Servo::maxAngle() const{
-	return microsToDegrees(m_maxPulse);
+	uint8_t result =  (m_invert) ? microsToDegrees(m_minPulse) : microsToDegrees(m_maxPulse);
+	return (m_invert) ? 180-result : result;
 }
 	
 void Servo::maxAngle(uint8_t maxAngle){
-	m_maxPulse = degreesToMicros(maxAngle);
+	if(m_invert)
+		m_minPulse = degreesToMicros(180 - m_maxPulse);
+	else
+		m_maxPulse = degreesToMicros(m_maxPulse);
 }	
 	
 bool Servo::invert() const{
@@ -162,7 +177,14 @@ bool Servo::invert() const{
 }
 	
 void Servo::invert(bool invert){
-	m_invert = invert;
+	if(invert != m_invert){
+		uint8_t minAng = minAngle();
+		uint8_t maxAng = maxAngle();
+		m_invert = invert;
+		limitAngle(minAng, maxAng);
+	}else{
+		m_invert = invert;
+	}		
 }
 	
 bool Servo::normalize() const{
