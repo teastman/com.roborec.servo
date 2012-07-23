@@ -11,7 +11,7 @@ String serialString;
 
 // Servos
 int active_servos = 1;
-int const NUM_SERVOS = 20;
+int const NUM_SERVOS = 18;
 Servo* servo[NUM_SERVOS];
 int pattern = 1;
 
@@ -22,7 +22,7 @@ void setup()
  
   DDRD = B11111100;
   DDRB = B00111111;
-  DDRC = B11111111;
+  DDRC = B00111111;
   
  // Servo s = new Servo();
   
@@ -38,7 +38,7 @@ void setup()
     {
       attach(servo[i], &PORTB, 1<<(i-6));
     }
-    else if(i < 20)
+    else if(i < 18)
     {
       attach(servo[i], &PORTC, 1<<(i-12));
     }
