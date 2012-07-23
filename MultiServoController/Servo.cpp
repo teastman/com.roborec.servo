@@ -28,14 +28,14 @@ Servo::~Servo(){
 }
 
 void Servo::rotateTo(uint8_t angle){
-	rotateTo(angle, m_limitVelocity);
-}
-
-void Servo::rotateTo(uint8_t angle, uint8_t velocity){
 	angle = (angle>180) ? 180 : angle;
 	m_destinationPulse = degreesToMicros(angle);
 	m_destinationPulse = (m_destinationPulse>m_maxPulse) ? m_maxPulse : m_destinationPulse;
 	m_destinationPulse = (m_destinationPulse<m_minPulse) ? m_minPulse : m_destinationPulse;
+}
+
+void Servo::rotateTo(uint8_t angle, uint8_t velocity){
+	rotateTo(angle);
 	m_pulseVelocity = pulseVelocity(velocity);
 	m_applyVelocityLimit = true;
 }
@@ -132,11 +132,11 @@ void Servo::unlimitVelocity(){
 	m_applyVelocityLimit = false;
 }	
 
-bool Servo::isLimited(){
+bool Servo::isVelocityLimited(){
 	return m_applyVelocityLimit;
 }	
 	
-void Servo::limit(uint8_t minAngle, uint8_t maxAngle){
+void Servo::limitAngle(uint8_t minAngle, uint8_t maxAngle){
 	m_minPulse = degreesToMicros(minAngle);
 	m_maxPulse = degreesToMicros(maxAngle);
 }	

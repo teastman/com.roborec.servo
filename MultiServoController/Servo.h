@@ -43,9 +43,9 @@ public:
 	uint8_t		limitVelocity() const;				// Get the velocity limiter. (0-100%)
 	void		limitVelocity(uint8_t velocity);	// Set the velocity limiter. (0-100%)
 	void		unlimitVelocity();					// clear the velocity limiter, sets the applyVelocityLimit = false, which saves on calculations.
-	bool		isLimited();						// Returns true if limiting is being used.
+	bool		isVelocityLimited();				// Returns true if limiting is being used.
 	
-	void		limit(uint8_t minAngle, uint8_t maxAngle);	// Limit the angle between min and max. (0-180)
+	void		limitAngle(uint8_t minAngle, uint8_t maxAngle);	// Limit the angle between min and max. (0-180)
 	uint8_t		minAngle() const;					// Get the minimum angle limit. (0-180)
 	void		minAngle(uint8_t minAngle);			// Set the minimum angle limit. (0-180)
 	uint8_t		maxAngle() const;					// Get the maximum angle limit. (0-180)
