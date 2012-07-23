@@ -58,9 +58,12 @@ public:
 	
 	uint16_t	degreesToMicros(uint8_t val) const;		// Convert degrees into micro seconds.
 	uint8_t		microsToDegrees(uint16_t val) const;	// Convert micro seconds into degrees.
-
+	
 private:
 	uint16_t	pulseVelocity(uint8_t velocity) const; // Calculate the current velocity in pulse time per update (20 milli seconds). based on a passed limiting velocity 0-100%
+	
+	uint8_t		normalizeAngle(uint8_t angle) const;		// Convert angle from 0-180 onto minAngle-maxAngle.
+	uint8_t		deNormalizeAngle(uint8_t angle) const;	// Convert angle from minAngle-maxAngle onto 0-180.
 
 	uint16_t	m_minPulseWidth;		// The minimum amount of pulse time (us) to set the servo to position 0, Dependent on the servo spec.  (Default : 600)
 	uint16_t	m_maxPulseWidth;		// The maximum amount of pulse time (us) to set the servo to position 180, Dependent on the servo spec.  (Default : 2400)
